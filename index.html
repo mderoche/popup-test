@@ -144,19 +144,24 @@
                 }
             }, [createRdcRedirectContext, submitRdcForm, log]);
 
-            // Production onComplete callback
-            const onComplete = useCallback(() => {
+            const apiCall = useCallback(async (delay) => {
+                await fetch(`https://httpbin.org/delay/${delay}`, { method: 'POST' });
+            }, []);
+
+            // Separate function to simulate onComplete with direct values
+            const simulateOnComplete = useCallback((inquiryId, redirectUrl) => {
                 const isRdcStep = stepIndex === 1; // simulate being on RDC step
                 
                 log('onComplete() called', 'debug');
+                log(`rdcInquiryId: ${inquiryId}, isRdcStep: ${isRdcStep}`, 'debug');
                 
                 // handle RDC redirects (match production logic)
-                if (rdcInquiryId && isRdcStep) {
-                    if (rdcRedirectUrl) {
+                if (inquiryId && isRdcStep) {
+                    if (redirectUrl) {
                         log('calling handleRdcRedirect()', 'info');
                         handleRdcRedirect({
-                            redirectUrl: rdcRedirectUrl,
-                            inquiryId: rdcInquiryId,
+                            redirectUrl: redirectUrl,
+                            inquiryId: inquiryId,
                             userAgent: navigator.userAgent,
                         });
                     } else {
@@ -166,11 +171,7 @@
                 }
                 
                 log('non-RDC flow completed', 'info');
-            }, [stepIndex, rdcInquiryId, rdcRedirectUrl, handleRdcRedirect, log]);
-
-            const apiCall = useCallback(async (delay) => {
-                await fetch(`https://httpbin.org/delay/${delay}`, { method: 'POST' });
-            }, []);
+            }, [stepIndex, handleRdcRedirect, log]);
 
             // Production button onClick
             const simulateButtonClick = useCallback(async () => {
@@ -179,8 +180,10 @@
                 log('User clicked "Get Started" button', 'info');
                 
                 // Simulate having RDC inquiry data (like production sets these)
-                setRdcInquiryId('test-inquiry-id');
-                setRdcRedirectUrl('https://httpbin.org/post');
+                const localRdcInquiryId = 'test-inquiry-id';
+                const localRdcRedirectUrl = 'https://httpbin.org/post';
+                setRdcInquiryId(localRdcInquiryId);
+                setRdcRedirectUrl(localRdcRedirectUrl);
 
                 log('setTerminatingIncompleteClaimFlow(true)', 'debug');
                 setTerminatingIncompleteClaimFlow(true);
@@ -209,14 +212,15 @@
                 }
 
                 log('calling onComplete()', 'info');
-                onComplete();
+                // Call onComplete with local values to avoid React state timing issues
+                simulateOnComplete(localRdcInquiryId, localRdcRedirectUrl);
                 
                 log('test complete', 'info');
 
                 setIsLoading(false);
                 setTerminatingIncompleteClaimFlow(false);
                 setIsRdcRedirecting(false);
-            }, [performDetection, log, clear, apiCall, detectPopupBlocking, onComplete]);
+            }, [performDetection, log, clear, apiCall, detectPopupBlocking, simulateOnComplete]);
 
             return (
                 <div className="container mt-4">
