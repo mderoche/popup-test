@@ -88,11 +88,11 @@
                 return redirectContext.isPopupBlocked;
             }, [createRdcRedirectContext]);
 
-            const simulateRdcPopup = useCallback(() => {
+            const simulateRdcPopup = useCallback((popup = true) => {
                 const form = document.createElement('form');
                 form.method = 'POST';
                 form.action = 'https://httpbin.org/post';
-                form.target = '_blank';
+                form.target = popup ? '_blank' : '_self';
                 form.style.display = 'none';
                 document.body.appendChild(form);
                 form.submit();
@@ -107,6 +107,8 @@
                 clear();
                 setIsLoading(true);
                 log('User clicked "Get Started" button', 'info');
+                
+                let usePopup = true; // default to popup
 
                 log('React: setTerminatingIncompleteClaimFlow(true)', 'debug');
                 setTerminatingIncompleteClaimFlow(true);
@@ -148,15 +150,17 @@
 
                     if (redirectContext.isPopupBlocked) {
                         log('Redirect Handler: Calling submitRdcForm({ popup: false }) - SAME-WINDOW REDIRECT', 'warning');
+                        usePopup = false;
                     } else {
                         log('Redirect Handler: Calling submitRdcForm({ popup: true }) - POPUP REDIRECT', 'success');
+                        usePopup = true;
                     }
                 } else {
                     log('Skipping second popup detection', 'warning');
                 }
 
-                log('Attempting RDC redirect...', 'info');
-                simulateRdcPopup();
+                log(`Attempting RDC redirect with popup=${usePopup}...`, 'info');
+                simulateRdcPopup(usePopup);
                 log('Test complete. Check for new tab/window.', 'info');
 
                 setIsLoading(false);
