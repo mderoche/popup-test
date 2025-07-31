@@ -32,6 +32,7 @@
         function PopupTestApp() {
             const [logs, setLogs] = useState([]);
             const [performDetection, setPerformDetection] = useState(true);
+            const [performSamePageRedirect, setPerformSamePageRedirect] = useState(false);
             const [isLoading, setIsLoading] = useState(false);
             const [terminatingIncompleteClaimFlow, setTerminatingIncompleteClaimFlow] = useState(false);
             const [isRdcRedirecting, setIsRdcRedirecting] = useState(false);
@@ -160,13 +161,20 @@
                 }
 
                 log(`Attempting RDC redirect with popup=${usePopup}...`, 'info');
-                simulateRdcPopup(usePopup);
+                
+                // Check if we should actually perform the redirect
+                if (!usePopup && !performSamePageRedirect) {
+                    log('SKIPPING same-page redirect (checkbox unchecked) - would redirect to same page in production', 'warning');
+                } else {
+                    simulateRdcPopup(usePopup);
+                }
+                
                 log('Test complete. Check for new tab/window.', 'info');
 
                 setIsLoading(false);
                 setTerminatingIncompleteClaimFlow(false);
                 setIsRdcRedirecting(false);
-            }, [performDetection, log, clear, apiCall, detectPopupBlocking, createRdcRedirectContext, simulateRdcPopup]);
+            }, [performDetection, log, clear, apiCall, detectPopupBlocking, createRdcRedirectContext, simulateRdcPopup, performSamePageRedirect]);
 
             return (
                 <div className="container mt-4">
@@ -187,6 +195,18 @@
                                 />
                                 <label className="form-check-label" htmlFor="performDetection">
                                     Perform popup detection check
+                                </label>
+                            </div>
+                            <div className="form-check mb-3">
+                                <input 
+                                    className="form-check-input" 
+                                    type="checkbox" 
+                                    id="performSamePageRedirect" 
+                                    checked={performSamePageRedirect}
+                                    onChange={(e) => setPerformSamePageRedirect(e.target.checked)}
+                                />
+                                <label className="form-check-label" htmlFor="performSamePageRedirect">
+                                    Perform redirect on same-page redirect
                                 </label>
                             </div>
                             <div className="d-flex gap-2 align-items-center mb-3">
