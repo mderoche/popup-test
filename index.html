@@ -84,10 +84,9 @@
             }, []);
 
             const createRdcRedirectContext = useCallback((userAgent) => {
-                // Simulate popupProtectionEnabledForUserAgent check (always true with .* pattern)
+                // Always enabled with .* pattern
                 const isPopupProtectionEnabledForUserAgent = true;
                 
-                // Only detect popup blocking if popup protection is enabled for this user agent
                 const isPopupBlocked = isPopupProtectionEnabledForUserAgent
                     ? detectPopupBlocker()
                     : false;
@@ -118,12 +117,12 @@
             // Production submitRdcForm
             const submitRdcForm = useCallback(async (params) => {
                 const { url, popup } = params;
-                log(`submitRdcForm called with popup=${popup}`, 'debug');
                 
                 if (!popup && !performSamePageRedirect) {
                     log('SKIPPING same-page redirect (checkbox unchecked)', 'warning');
                 } else {
                     simulateRdcPopup(popup);
+                    log('Redirect executed', 'info');
                 }
             }, [simulateRdcPopup, performSamePageRedirect, log]);
 
@@ -131,15 +130,15 @@
             const handleRdcRedirect = useCallback(async (params) => {
                 const { redirectUrl, inquiryId, userAgent } = params;
                 
-                log('createRdcRedirectContext() called from handleRdcRedirect', 'info');
+                log('Second popup detection (redirect handler)', 'info');
                 const redirectContext = createRdcRedirectContext(userAgent);
-                log(`createRdcRedirectContext() result: ${redirectContext.isPopupBlocked ? 'BLOCKED' : 'ALLOWED'}`, redirectContext.isPopupBlocked ? 'error' : 'success');
+                log(`Result: ${redirectContext.isPopupBlocked ? 'BLOCKED' : 'ALLOWED'}`, redirectContext.isPopupBlocked ? 'error' : 'success');
 
                 if (redirectContext.isPopupBlocked) {
-                    log('calling submitRdcForm({ popup: false }) - same-window redirect', 'warning');
+                    log('→ Same-window redirect', 'warning');
                     await submitRdcForm({ url: redirectUrl, popup: false });
                 } else {
-                    log('calling submitRdcForm({ popup: true }) - popup redirect', 'success');
+                    log('→ Popup redirect', 'success');
                     await submitRdcForm({ url: redirectUrl, popup: true });
                 }
             }, [createRdcRedirectContext, submitRdcForm, log]);
@@ -152,70 +151,51 @@
             const simulateOnComplete = useCallback((inquiryId, redirectUrl) => {
                 const isRdcStep = stepIndex === 1; // simulate being on RDC step
                 
-                log('onComplete() called', 'debug');
-                log(`rdcInquiryId: ${inquiryId}, isRdcStep: ${isRdcStep}`, 'debug');
-                
                 // handle RDC redirects (match production logic)
                 if (inquiryId && isRdcStep) {
                     if (redirectUrl) {
-                        log('calling handleRdcRedirect()', 'info');
                         handleRdcRedirect({
                             redirectUrl: redirectUrl,
                             inquiryId: inquiryId,
                             userAgent: navigator.userAgent,
                         });
                     } else {
-                        log('ERROR: missing redirect URL for RDC inquiry', 'error');
+                        log('ERROR: missing redirect URL', 'error');
                     }
                     return;
                 }
                 
-                log('non-RDC flow completed', 'info');
+                log('non-RDC flow', 'info');
             }, [stepIndex, handleRdcRedirect, log]);
 
             // Production button onClick
             const simulateButtonClick = useCallback(async () => {
                 clear();
                 setIsLoading(true);
-                log('User clicked "Get Started" button', 'info');
+                log('Button clicked', 'info');
                 
-                // Simulate having RDC inquiry data (like production sets these)
+                // Simulate having RDC inquiry data
                 const localRdcInquiryId = 'test-inquiry-id';
                 const localRdcRedirectUrl = 'https://httpbin.org/post';
                 setRdcInquiryId(localRdcInquiryId);
                 setRdcRedirectUrl(localRdcRedirectUrl);
 
-                log('setTerminatingIncompleteClaimFlow(true)', 'debug');
                 setTerminatingIncompleteClaimFlow(true);
-
-                log('setIsRdcRedirecting(true)', 'debug');
                 setIsRdcRedirecting(true);
 
-                log('await terminateIncompleteClaimFlow()', 'debug');
+                log('API calls...', 'debug');
                 await apiCall(0.1);
-
-                log('await verifyRdcRedirectAllowed()', 'debug');
                 await apiCall(0.15);
 
                 if (performDetection) {
-                    log('detectPopupBlocking() called from button handler', 'info');
+                    log('First popup detection (button handler)', 'info');
                     const needsPopupProtection = detectPopupBlocking({ userAgent: navigator.userAgent });
-                    log(`detectPopupBlocking() result: ${needsPopupProtection ? 'BLOCKED' : 'ALLOWED'}`, needsPopupProtection ? 'error' : 'success');
-
-                    if (needsPopupProtection) {
-                        log('will await queueRdcInquiry (popup protection needed)', 'debug');
-                    } else {
-                        log('will fire-and-forget queueRdcInquiry (RDC popup protection not needed)', 'debug');
-                    }
+                    log(`Result: ${needsPopupProtection ? 'BLOCKED' : 'ALLOWED'}`, needsPopupProtection ? 'error' : 'success');
                 } else {
-                    log('skipping detectPopupBlocking()', 'warning');
+                    log('Skipping first popup detection', 'warning');
                 }
 
-                log('calling onComplete()', 'info');
-                // Call onComplete with local values to avoid React state timing issues
                 simulateOnComplete(localRdcInquiryId, localRdcRedirectUrl);
-                
-                log('test complete', 'info');
 
                 setIsLoading(false);
                 setTerminatingIncompleteClaimFlow(false);
