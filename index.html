@@ -54,7 +54,6 @@
             // Simulate React re-renders and side effects like production
             useEffect(() => {
                 if (terminatingIncompleteClaimFlow) {
-                    // Simulate additional re-render work
                     setTimeout(() => {
                         setIsRdcRedirecting(true);
                     }, 0);
@@ -99,7 +98,7 @@
                 };
             }, [detectPopupBlocker]);
 
-            // Match production detectPopupBlocking function signature
+            // Production detectPopupBlocking function
             const detectPopupBlocking = useCallback((params) => {
                 const redirectContext = createRdcRedirectContext(params.userAgent);
                 return redirectContext.isPopupBlocked;
@@ -116,36 +115,36 @@
                 document.body.removeChild(form);
             }, []);
 
-            // Match production submitRdcForm
+            // Production submitRdcForm
             const submitRdcForm = useCallback(async (params) => {
                 const { url, popup } = params;
                 log(`submitRdcForm called with popup=${popup}`, 'debug');
                 
                 if (!popup && !performSamePageRedirect) {
-                    log('SKIPPING same-page redirect (checkbox unchecked) - would redirect to same page in production', 'warning');
+                    log('SKIPPING same-page redirect (checkbox unchecked)', 'warning');
                 } else {
                     simulateRdcPopup(popup);
                 }
             }, [simulateRdcPopup, performSamePageRedirect, log]);
 
-            // Match production handleRdcRedirect
+            // Production handleRdcRedirect
             const handleRdcRedirect = useCallback(async (params) => {
                 const { redirectUrl, inquiryId, userAgent } = params;
                 
-                log('SECOND DETECTION: handleRdcRedirect() calling createRdcRedirectContext()...', 'info');
+                log('createRdcRedirectContext() called from handleRdcRedirect', 'info');
                 const redirectContext = createRdcRedirectContext(userAgent);
-                log(`Redirect Handler Result: ${redirectContext.isPopupBlocked ? 'BLOCKED' : 'ALLOWED'}`, redirectContext.isPopupBlocked ? 'error' : 'success');
+                log(`createRdcRedirectContext() result: ${redirectContext.isPopupBlocked ? 'BLOCKED' : 'ALLOWED'}`, redirectContext.isPopupBlocked ? 'error' : 'success');
 
                 if (redirectContext.isPopupBlocked) {
-                    log('Redirect Handler: Calling submitRdcForm({ popup: false }) - SAME-WINDOW REDIRECT', 'warning');
+                    log('calling submitRdcForm({ popup: false }) - same-window redirect', 'warning');
                     await submitRdcForm({ url: redirectUrl, popup: false });
                 } else {
-                    log('Redirect Handler: Calling submitRdcForm({ popup: true }) - POPUP REDIRECT', 'success');
+                    log('calling submitRdcForm({ popup: true }) - popup redirect', 'success');
                     await submitRdcForm({ url: redirectUrl, popup: true });
                 }
             }, [createRdcRedirectContext, submitRdcForm, log]);
 
-            // Match production onComplete callback
+            // Production onComplete callback
             const onComplete = useCallback(() => {
                 const isRdcStep = stepIndex === 1; // simulate being on RDC step
                 
@@ -154,26 +153,26 @@
                 // handle RDC redirects (match production logic)
                 if (rdcInquiryId && isRdcStep) {
                     if (rdcRedirectUrl) {
-                        log('Calling handleRdcRedirect()...', 'info');
+                        log('calling handleRdcRedirect()', 'info');
                         handleRdcRedirect({
                             redirectUrl: rdcRedirectUrl,
                             inquiryId: rdcInquiryId,
                             userAgent: navigator.userAgent,
                         });
                     } else {
-                        log('ERROR: Missing redirect URL for RDC inquiry', 'error');
+                        log('ERROR: missing redirect URL for RDC inquiry', 'error');
                     }
                     return;
                 }
                 
-                log('Non-RDC flow completed', 'info');
+                log('non-RDC flow completed', 'info');
             }, [stepIndex, rdcInquiryId, rdcRedirectUrl, handleRdcRedirect, log]);
 
             const apiCall = useCallback(async (delay) => {
                 await fetch(`https://httpbin.org/delay/${delay}`, { method: 'POST' });
             }, []);
 
-            // Match production button onClick structure
+            // Production button onClick
             const simulateButtonClick = useCallback(async () => {
                 clear();
                 setIsLoading(true);
@@ -183,40 +182,36 @@
                 setRdcInquiryId('test-inquiry-id');
                 setRdcRedirectUrl('https://httpbin.org/post');
 
-                log('React: setTerminatingIncompleteClaimFlow(true)', 'debug');
+                log('setTerminatingIncompleteClaimFlow(true)', 'debug');
                 setTerminatingIncompleteClaimFlow(true);
-                await new Promise(resolve => setTimeout(resolve, 0));
 
-                log('React: setIsRdcRedirecting(true)', 'debug');
+                log('setIsRdcRedirecting(true)', 'debug');
                 setIsRdcRedirecting(true);
-                await new Promise(resolve => setTimeout(resolve, 0));
 
-                log('API: await terminateIncompleteClaimFlow()', 'debug');
+                log('await terminateIncompleteClaimFlow()', 'debug');
                 await apiCall(0.1);
 
-                log('API: await verifyRdcRedirectAllowed()', 'debug');
+                log('await verifyRdcRedirectAllowed()', 'debug');
                 await apiCall(0.15);
 
-                // FIRST DETECTION: In button handler (like production)
                 if (performDetection) {
-                    log('FIRST DETECTION: Button handler calling detectPopupBlocking()...', 'info');
+                    log('detectPopupBlocking() called from button handler', 'info');
                     const needsPopupProtection = detectPopupBlocking({ userAgent: navigator.userAgent });
-                    log(`Button Handler Result: ${needsPopupProtection ? 'BLOCKED' : 'ALLOWED'}`, needsPopupProtection ? 'error' : 'success');
+                    log(`detectPopupBlocking() result: ${needsPopupProtection ? 'BLOCKED' : 'ALLOWED'}`, needsPopupProtection ? 'error' : 'success');
 
                     if (needsPopupProtection) {
-                        log('Button Handler: Will await queueRdcInquiry', 'debug');
+                        log('will await queueRdcInquiry (popup protection needed)', 'debug');
                     } else {
-                        log('Button Handler: Will fire-and-forget queueRdcInquiry ("RDC popup protection not needed")', 'debug');
+                        log('will fire-and-forget queueRdcInquiry (RDC popup protection not needed)', 'debug');
                     }
                 } else {
-                    log('Skipping first popup detection', 'warning');
+                    log('skipping detectPopupBlocking()', 'warning');
                 }
 
-                // Call onComplete like production does
-                log('Calling onComplete()...', 'info');
+                log('calling onComplete()', 'info');
                 onComplete();
                 
-                log('Test complete.', 'info');
+                log('test complete', 'info');
 
                 setIsLoading(false);
                 setTerminatingIncompleteClaimFlow(false);
