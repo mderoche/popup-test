@@ -3,8 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Production Flow Popup Test</title>
+    <title>React Popup Test</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <style>
         .results {
             font-family: monospace;
@@ -21,122 +24,171 @@
     </style>
 </head>
 <body>
-    <div class="container mt-4">
-        <h1 class="mb-4">RDC Popup Simulation</h1>
-        
-        <div class="card mb-4">
-            <div class="card-body">
-                <h3 class="card-title">Current Production Method</h3>
-                <p><em>Uses `window.open` to open a popup and check if it was blocked, then act accordingly.</em></p>
-                <hr />
-                <div class="form-check mb-3">
-                    <input class="form-check-input" type="checkbox" id="performDetection" checked>
-                    <label class="form-check-label" for="performDetection">Perform popup detection check</label>
-                </div>
-                <div class="d-flex gap-2 align-items-center mb-3">
-                    <button class="btn btn-primary btn-lg" onclick="runExactProductionFlow()">Simulate "Get Started" Click</button>
-                </div>
-                <div id="results" class="results border p-3 bg-light rounded"></div>
-            </div>
-        </div>
-    </div>
+    <div id="root"></div>
 
-    <script>
-        function log(msg, type = 'info') {
-            const el = document.getElementById('results');
-            const time = new Date().toLocaleTimeString();
-            el.innerHTML += `<span class="${type}">[${time}] ${msg}</span>\n`;
-            el.scrollTop = el.scrollHeight;
-        }
+    <script type="text/babel">
+        const { useState, useEffect, useCallback } = React;
 
-        function clear() {
-            document.getElementById('results').innerHTML = '';
-        }
+        function PopupTestApp() {
+            const [logs, setLogs] = useState([]);
+            const [performDetection, setPerformDetection] = useState(true);
+            const [isLoading, setIsLoading] = useState(false);
+            const [terminatingIncompleteClaimFlow, setTerminatingIncompleteClaimFlow] = useState(false);
+            const [isRdcRedirecting, setIsRdcRedirecting] = useState(false);
 
-        function detectPopupBlocker() {
-            let popup = null;
-            let isBlocked = false;
+            const log = useCallback((msg, type = 'info') => {
+                const time = new Date().toLocaleTimeString();
+                setLogs(prevLogs => [...prevLogs, { time, msg, type }]);
+            }, []);
 
-            try {
-                const testName = `bluebidTest_${Math.random().toString(36).substr(2, 9)}`;
-                popup = window.open('', testName, 'width=1,height=1,left=-1000,top=-1000');
-                isBlocked = !popup || popup.closed || typeof popup.closed === 'undefined';
-            } catch {
-                isBlocked = true;
-            }
+            const clear = useCallback(() => {
+                setLogs([]);
+            }, []);
 
-            if (popup && !popup.closed) {
+            // Simulate React re-renders and side effects
+            useEffect(() => {
+                if (terminatingIncompleteClaimFlow) {
+                    // Simulate additional re-render work
+                    setTimeout(() => {
+                        setIsRdcRedirecting(true);
+                    }, 0);
+                }
+            }, [terminatingIncompleteClaimFlow]);
+
+            const detectPopupBlocker = useCallback(() => {
+                let popup = null;
+                let isBlocked = false;
+
                 try {
-                    popup.close();
-                } catch (cleanupError) {
-                    console.error('failed to cleanup popup during detection', cleanupError);
+                    const testName = `bluebidTest_${Math.random().toString(36).substr(2, 9)}`;
+                    popup = window.open('', testName, 'width=1,height=1,left=-1000,top=-1000');
+                    isBlocked = !popup || popup.closed || typeof popup.closed === 'undefined';
+                } catch {
+                    isBlocked = true;
                 }
-            }
 
-            return isBlocked;
-        }
+                if (popup && !popup.closed) {
+                    try {
+                        popup.close();
+                    } catch (cleanupError) {
+                        console.error('failed to cleanup popup during detection', cleanupError);
+                    }
+                }
 
-        function createRdcRedirectContext(userAgent) {
-            const isPopupBlocked = detectPopupBlocker();
-            return { isPopupBlocked };
-        }
+                return isBlocked;
+            }, []);
 
-        function detectPopupBlocking(params) {
-            const redirectContext = createRdcRedirectContext(params.userAgent);
-            return redirectContext.isPopupBlocked;
-        }
+            const createRdcRedirectContext = useCallback((userAgent) => {
+                const isPopupBlocked = detectPopupBlocker();
+                return { isPopupBlocked };
+            }, [detectPopupBlocker]);
 
-        function simulateRdcPopup() {
-            const form = document.createElement('form');
-            form.method = 'POST';
-            form.action = 'https://httpbin.org/post';
-            form.target = '_blank';
-            form.style.display = 'none';
-            document.body.appendChild(form);
-            form.submit();
-            document.body.removeChild(form);
-        }
+            const detectPopupBlocking = useCallback((params) => {
+                const redirectContext = createRdcRedirectContext(params.userAgent);
+                return redirectContext.isPopupBlocked;
+            }, [createRdcRedirectContext]);
 
-        async function apiCall(delay) {
-            await fetch(`https://httpbin.org/delay/${delay}`, { method: 'POST' });
-        }
+            const simulateRdcPopup = useCallback(() => {
+                const form = document.createElement('form');
+                form.method = 'POST';
+                form.action = 'https://httpbin.org/post';
+                form.target = '_blank';
+                form.style.display = 'none';
+                document.body.appendChild(form);
+                form.submit();
+                document.body.removeChild(form);
+            }, []);
 
-        async function runExactProductionFlow() {
-            clear();
-            log('User clicked "Get Started" button', 'info');
-            
-            const shouldPerformDetection = document.getElementById('performDetection').checked;
-            
-            log('React: setTerminatingIncompleteClaimFlow(true)', 'debug');
-            await new Promise(resolve => setTimeout(resolve, 0));
-            
-            log('React: setIsRdcRedirecting(true)', 'debug');
-            await new Promise(resolve => setTimeout(resolve, 0));
-            
-            log('API: await terminateIncompleteClaimFlow()', 'debug');
-            await apiCall(0.1);
-            
-            log('API: await verifyRdcRedirectAllowed()', 'debug');
-            await apiCall(0.15);
-            
-            if (shouldPerformDetection) {
-                log('Running popup detection through production layers...', 'info');
-                const needsPopupProtection = detectPopupBlocking({ userAgent: navigator.userAgent });
-                log(`Production Result: ${needsPopupProtection ? 'BLOCKED' : 'ALLOWED'}`, needsPopupProtection ? 'error' : 'success');
-                
-                if (needsPopupProtection) {
-                    log('Production: Using same-window redirect', 'warning');
+            const apiCall = useCallback(async (delay) => {
+                await fetch(`https://httpbin.org/delay/${delay}`, { method: 'POST' });
+            }, []);
+
+            const runProductionFlow = useCallback(async () => {
+                clear();
+                setIsLoading(true);
+                log('User clicked "Get Started" button', 'info');
+
+                log('React: setTerminatingIncompleteClaimFlow(true)', 'debug');
+                setTerminatingIncompleteClaimFlow(true);
+                await new Promise(resolve => setTimeout(resolve, 0));
+
+                log('React: setIsRdcRedirecting(true)', 'debug');
+                setIsRdcRedirecting(true);
+                await new Promise(resolve => setTimeout(resolve, 0));
+
+                log('API: await terminateIncompleteClaimFlow()', 'debug');
+                await apiCall(0.1);
+
+                log('API: await verifyRdcRedirectAllowed()', 'debug');
+                await apiCall(0.15);
+
+                if (performDetection) {
+                    log('Running popup detection through production layers...', 'info');
+                    const needsPopupProtection = detectPopupBlocking({ userAgent: navigator.userAgent });
+                    log(`Production Result: ${needsPopupProtection ? 'BLOCKED' : 'ALLOWED'}`, needsPopupProtection ? 'error' : 'success');
+
+                    if (needsPopupProtection) {
+                        log('Production: Using same-window redirect', 'warning');
+                    } else {
+                        log('Production: Using popup redirect', 'success');
+                    }
                 } else {
-                    log('Production: Using popup redirect', 'success');
+                    log('Skipping popup detection', 'warning');
                 }
-            } else {
-                log('Skipping popup detection', 'warning');
-            }
-            
-            log('Attempting RDC redirect...', 'info');
-            simulateRdcPopup();
-            log('Test complete. Check for new tab/window.', 'info');
+
+                log('Attempting RDC redirect...', 'info');
+                simulateRdcPopup();
+                log('Test complete. Check for new tab/window.', 'info');
+
+                setIsLoading(false);
+                setTerminatingIncompleteClaimFlow(false);
+                setIsRdcRedirecting(false);
+            }, [performDetection, log, clear, apiCall, detectPopupBlocking, simulateRdcPopup]);
+
+            return (
+                <div className="container mt-4">
+                    <h1 className="mb-4">React Popup Simulation</h1>
+                    
+                    <div className="card mb-4">
+                        <div className="card-body">
+                            <h3 className="card-title">Current Production Method (React)</h3>
+                            <p><em>Uses React state management and `window.open` to test popup blocking.</em></p>
+                            <hr />
+                            <div className="form-check mb-3">
+                                <input 
+                                    className="form-check-input" 
+                                    type="checkbox" 
+                                    id="performDetection" 
+                                    checked={performDetection}
+                                    onChange={(e) => setPerformDetection(e.target.checked)}
+                                />
+                                <label className="form-check-label" htmlFor="performDetection">
+                                    Perform popup detection check
+                                </label>
+                            </div>
+                            <div className="d-flex gap-2 align-items-center mb-3">
+                                <button 
+                                    className="btn btn-primary btn-lg" 
+                                    onClick={runProductionFlow}
+                                    disabled={isLoading}
+                                >
+                                    {isLoading ? 'Running...' : 'Simulate "Get Started" Click'}
+                                </button>
+                            </div>
+                            <div className="results border p-3 bg-light rounded">
+                                {logs.map((log, index) => (
+                                    <div key={index}>
+                                        <span className={log.type}>[{log.time}] {log.msg}</span>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            );
         }
+
+        ReactDOM.render(<PopupTestApp />, document.getElementById('root'));
     </script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 </body>
