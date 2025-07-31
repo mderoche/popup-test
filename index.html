@@ -122,18 +122,37 @@
                 log('API: await verifyRdcRedirectAllowed()', 'debug');
                 await apiCall(0.15);
 
+                // FIRST DETECTION: In button handler (like production)
                 if (performDetection) {
-                    log('Running popup detection through production layers...', 'info');
+                    log('FIRST DETECTION: Button handler calling detectPopupBlocking()...', 'info');
                     const needsPopupProtection = detectPopupBlocking({ userAgent: navigator.userAgent });
-                    log(`Production Result: ${needsPopupProtection ? 'BLOCKED' : 'ALLOWED'}`, needsPopupProtection ? 'error' : 'success');
+                    log(`Button Handler Result: ${needsPopupProtection ? 'BLOCKED' : 'ALLOWED'}`, needsPopupProtection ? 'error' : 'success');
 
                     if (needsPopupProtection) {
-                        log('Production: Using same-window redirect', 'warning');
+                        log('Button Handler: Will await queueRdcInquiry', 'debug');
                     } else {
-                        log('Production: Using popup redirect', 'success');
+                        log('Button Handler: Will fire-and-forget queueRdcInquiry ("RDC popup protection not needed")', 'debug');
                     }
                 } else {
-                    log('Skipping popup detection', 'warning');
+                    log('Skipping first popup detection', 'warning');
+                }
+
+                // Simulate onComplete() callback
+                log('Calling onComplete() → handleRdcRedirect()...', 'info');
+                
+                // SECOND DETECTION: In handleRdcRedirect (like production)
+                if (performDetection) {
+                    log('SECOND DETECTION: handleRdcRedirect() calling createRdcRedirectContext()...', 'info');
+                    const redirectContext = createRdcRedirectContext(navigator.userAgent);
+                    log(`Redirect Handler Result: ${redirectContext.isPopupBlocked ? 'BLOCKED' : 'ALLOWED'}`, redirectContext.isPopupBlocked ? 'error' : 'success');
+
+                    if (redirectContext.isPopupBlocked) {
+                        log('Redirect Handler: Calling submitRdcForm({ popup: false }) - SAME-WINDOW REDIRECT', 'warning');
+                    } else {
+                        log('Redirect Handler: Calling submitRdcForm({ popup: true }) - POPUP REDIRECT', 'success');
+                    }
+                } else {
+                    log('Skipping second popup detection', 'warning');
                 }
 
                 log('Attempting RDC redirect...', 'info');
@@ -143,7 +162,7 @@
                 setIsLoading(false);
                 setTerminatingIncompleteClaimFlow(false);
                 setIsRdcRedirecting(false);
-            }, [performDetection, log, clear, apiCall, detectPopupBlocking, simulateRdcPopup]);
+            }, [performDetection, log, clear, apiCall, detectPopupBlocking, createRdcRedirectContext, simulateRdcPopup]);
 
             return (
                 <div className="container mt-4">
